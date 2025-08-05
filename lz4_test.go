@@ -7,6 +7,7 @@ package lz4
 
 import (
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -25,6 +26,41 @@ import (
 const sampleFilePath = "./testdata/sample.txt"
 
 var plaintext0 = []byte("jkoedasdcnegzb.,ewqegmovobspjikodecedegds[]")
+
+var (
+	pg1661 = mustLoadFile("testdata/pg1661.txt.gz")
+)
+
+func loadGoldenGz(fname string) ([]byte, error) {
+	file, err := os.Open(fname)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	gzr, err := gzip.NewReader(file)
+	if err != nil {
+		return nil, err
+	}
+	buf := bytes.NewBuffer(nil)
+	if _, err := io.Copy(buf, gzr); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func mustLoadFile(f string) []byte {
+	var b []byte
+	var err error
+	if strings.HasSuffix(f, ".gz") {
+		b, err = loadGoldenGz(f)
+	} else {
+		b, err = os.ReadFile(f)
+	}
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
 
 func failOnError(t *testing.T, msg string, err error) {
 	t.Helper()
@@ -623,6 +659,47 @@ func TestReaderBadData(t *testing.T) {
 		t.Fatal("close failed:", err)
 	}
 }
+
+func benchmarkBlockCompress(b *testing.B, plain []byte) {
+	dst := make([]byte, CompressBound(plain))
+
+	b.SetBytes(int64(len(plain)))
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, err := Compress(dst, plain)
+		if err != nil {
+			b.Errorf("Compress error: %v", err)
+		}
+	}
+}
+
+func benchmarkBlockUncompress(b *testing.B, plain []byte) {
+	dst := make([]byte, len(plain))
+	compressed := make([]byte, CompressBound(plain))
+	n, err := Compress(compressed, plain)
+	if err != nil {
+		b.Errorf("Compress error: %v", err)
+	}
+	compressed = compressed[:n]
+
+	b.SetBytes(int64(len(compressed)))
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, err := Uncompress(dst, compressed)
+		if err != nil {
+			b.Errorf("Uncompress error: %v", err)
+		}
+	}
+}
+
+func BenchmarkBlockCompressShort(b *testing.B)   { benchmarkBlockCompress(b, plaintext0) }
+func BenchmarkBlockCompressLong(b *testing.B)    { benchmarkBlockCompress(b, pg1661) }
+func BenchmarkBlockUncompressShort(b *testing.B) { benchmarkBlockUncompress(b, plaintext0) }
+func BenchmarkBlockUncompressLong(b *testing.B)  { benchmarkBlockUncompress(b, pg1661) }
 
 func BenchmarkCompress(b *testing.B) {
 	b.ReportAllocs()
