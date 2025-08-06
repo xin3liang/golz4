@@ -662,17 +662,21 @@ func TestReaderBadData(t *testing.T) {
 
 func benchmarkBlockCompress(b *testing.B, plain []byte) {
 	dst := make([]byte, CompressBound(plain))
+	lenPlain := len(plain)
+	var err error
+	var n int
 
-	b.SetBytes(int64(len(plain)))
+	b.SetBytes(int64(lenPlain))
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, err := Compress(dst, plain)
+		n, err = Compress(dst, plain)
 		if err != nil {
-			b.Errorf("Compress error: %v", err)
+			b.Errorf("Compress error: %v bytes, %v", n, err)
 		}
 	}
+	b.ReportMetric(float64(n)/float64(lenPlain)*100, "ratio")
 }
 
 func benchmarkBlockUncompress(b *testing.B, plain []byte) {
@@ -696,6 +700,7 @@ func benchmarkBlockUncompress(b *testing.B, plain []byte) {
 	}
 }
 
+// pg1661 = 594933 bytes(581K)
 func BenchmarkBlockCompressShort(b *testing.B)   { benchmarkBlockCompress(b, plaintext0) }
 func BenchmarkBlockCompressLong(b *testing.B)    { benchmarkBlockCompress(b, pg1661) }
 func BenchmarkBlockUncompressShort(b *testing.B) { benchmarkBlockUncompress(b, plaintext0) }
