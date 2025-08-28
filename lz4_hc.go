@@ -1,7 +1,7 @@
 package lz4
 
-// #cgo pkg-config: liblz4
-// #include <lz4hc.h>
+// #cgo CFLAGS: -O3
+// #include "lz4hc.h"
 import "C"
 
 import (
