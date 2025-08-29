@@ -680,7 +680,8 @@ func benchmarkBlockCompress(b *testing.B, plain []byte) {
 }
 
 func benchmarkBlockUncompress(b *testing.B, plain []byte) {
-	dst := make([]byte, len(plain))
+	lenPlain := len(plain)
+	dst := make([]byte, lenPlain)
 	compressed := make([]byte, CompressBound(plain))
 	n, err := Compress(compressed, plain)
 	if err != nil {
@@ -688,7 +689,7 @@ func benchmarkBlockUncompress(b *testing.B, plain []byte) {
 	}
 	compressed = compressed[:n]
 
-	b.SetBytes(int64(len(compressed)))
+	b.SetBytes(int64(lenPlain))
 	b.ReportAllocs()
 	b.ResetTimer()
 
